@@ -3,15 +3,26 @@ using System.Collections;
 using System.Collections.Generic;
 
 public class RopeGenerator : MonoBehaviour {
-
-	private const int MAX_ROPE_LENGTH = 20;
-	private const int MIN_ROPE_LENGTH = 1;
 	private const string ROPE_PIECE_OBJECT_NAME = "ROPE_PIECE";
 	private const string ROPE_NAME = "GEN_ROPE";
 
 	public Sprite ropePieceSprite;
 	public GameObject fromObject;
 	public GameObject toObject;
+
+	[Range(1, 100)]
+	public int maxRopePieces;
+
+	[Range(1, 10)]
+	public float pieceMass;
+
+	[Range(1, 10)]
+	public float pieceGravityScale;
+
+	[Range(1, 10)]
+	public float pieceDrag;
+
+	public bool distanseTruth;
 
 	private List<GameObject> mRopePiecesList;
 
@@ -20,10 +31,15 @@ public class RopeGenerator : MonoBehaviour {
 
 	private SpriteRenderer ropePieceSpriteRenderer;
 	private Rigidbody2D ropePieceRigidbody;
-	private DistanceJoint2D ropePieceJoint;
+	private HingeJoint2D ropePieceJoint;
 
 	private float ropePieceCenterX;
 	private float ropePieceCenterY;
+
+	private float ropePieceWidth;
+	private float ropePieceHeight;
+
+	private float distanceBetweenObjects;
 
 	// Use this for initialization
 	void Start () {
@@ -37,12 +53,19 @@ public class RopeGenerator : MonoBehaviour {
 	}
 
 	private void initVariables() {
-		ropePieceCenterX = ropePieceSprite.bounds.center.normalized.x;
-		ropePieceCenterY = ropePieceSprite.bounds.center.normalized.y;
+		ropePieceCenterX = ropePieceSprite.bounds.center.x;
+		ropePieceCenterY = ropePieceSprite.bounds.center.y;
+
+		ropePieceWidth = ropePieceSprite.bounds.size.x;
+		ropePieceHeight = ropePieceSprite.bounds.size.y;
+
 		mRopePiecesList = new List<GameObject> ();
-		ropePieceObject = new GameObject ();
 
 		mRopeMainObject = new GameObject (ROPE_NAME);
+
+		//get the distance between gameobject
+		if (fromObject != null && toObject != null)
+			distanceBetweenObjects = Vector3.Distance (fromObject.transform.position, toObject.transform.position);
 	}
 
 	private GameObject initRopePiece() {
@@ -51,16 +74,15 @@ public class RopeGenerator : MonoBehaviour {
 		if (ropePieceSprite != null) {
 			ropePieceSpriteRenderer = ropePiece.AddComponent<SpriteRenderer>();
 			ropePieceRigidbody = ropePiece.AddComponent<Rigidbody2D>();
-			ropePieceJoint = ropePiece.AddComponent<DistanceJoint2D>();
+			ropePieceJoint = ropePiece.AddComponent<HingeJoint2D>();
 
 			ropePieceSpriteRenderer.sprite = ropePieceSprite;
 
-			ropePieceRigidbody.mass = 1f;
-			//ropePieceRigidbody.gravityScale = 0.1f;
+			ropePieceRigidbody.mass = pieceMass;
+			ropePieceRigidbody.gravityScale = pieceGravityScale;
+			ropePieceRigidbody.angularDrag = pieceDrag;
 
-			ropePieceJoint.distance = 0.1f;
-			ropePieceJoint.maxDistanceOnly = true;
-			ropePieceJoint.anchor = new Vector2(0, ropePieceCenterY);
+			ropePieceJoint.anchor = new Vector2(0, (ropePieceHeight / 2) + ropePieceCenterY);
 		} else
 			Debug.Log ("Please add sprite object to script (it's necessary)");
 
@@ -68,19 +90,24 @@ public class RopeGenerator : MonoBehaviour {
 	}
 
 	private void genRope() {
-		for (int i = 0; i < MAX_ROPE_LENGTH; i++) {
+		for (int i = 0; i < maxRopePieces; i++) {
 			ropePieceObject = initRopePiece();
 			ropePieceObject.transform.parent = mRopeMainObject.transform;
 
-			if (mRopePiecesList.Count > 0) {
+			if (mRopePiecesList.Count > 0 ) {
 				ropePieceJoint.connectedBody = mRopePiecesList[mRopePiecesList.Count - 1].rigidbody2D;
 			}
-			else
+			else if (fromObject != null)
 				ropePieceJoint.connectedBody = fromObject.rigidbody2D;
 
 			mRopePiecesList.Add(ropePieceObject);
 		}
 
-		toObject.GetComponent<DistanceJoint2D> ().connectedBody = ropePieceObject.rigidbody2D;
+		if (distanseTruth) {
+			if (toObject != null && distanceBetweenObjects < (ropePieceHeight * mRopePiecesList.Count))
+				toObject.GetComponent<HingeJoint2D> ().connectedBody = ropePieceObject.rigidbody2D;
+		}
+		else if (toObject != null)
+			toObject.GetComponent<HingeJoint2D> ().connectedBody = ropePieceObject.rigidbody2D;
 	}
 }
